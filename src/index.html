@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Go WebAssembly Example</title>
+    <script src="wasm_exec.js"></script>
+    <script>
+      const go = new Go();
+      WebAssembly.instantiateStreaming(
+        fetch("main.wasm"),
+        go.importObject
+      ).then((result) => {
+        go.run(result.instance);
+      });
+    </script>
+  </head>
+
+  <body>
+    <input id="letters" placeholder="letters" />
+    <!-- <button onclick="search(document.getElementById('letters').value)"> -->
+    <!--   Search -->
+    <!-- </button> -->
+    <p style="font-family: monospace" id="results"></p>
+    <script>
+      const input = document.getElementById("letters");
+      input.addEventListener("input", function () {
+        search(input.value);
+      });
+    </script>
+  </body>
+</html>
