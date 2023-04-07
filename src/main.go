@@ -2,7 +2,9 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"embed"
+	"github.com/hashicorp/go-immutable-radix"
 	"sort"
 	"strings"
 	"syscall/js"
@@ -11,8 +13,10 @@ import (
 //go:embed dictionary.txt
 var f embed.FS
 
-var dict map[string]bool
+var dict *iradix.Tree
 var hits map[string]bool
+
+const ALPHA = `ABCDEFGHIJKLMNOPQRSTUVWXYZ`
 
 var resultElement js.Value
 
@@ -21,12 +25,19 @@ func consoleLog(args ...interface{}) {
 }
 
 func search(this js.Value, args []js.Value) interface{} {
-	letters := args[0].String()
+	letters := strings.ToUpper(args[0].String())
 
 	// reset hits
 	hits = make(map[string]bool)
 
-	perm([]byte(strings.ToUpper(letters)), 0)
+	if strings.Contains(letters, "?") {
+		// TODO support multiple questions
+		for i := 0; i < len(ALPHA); i++ {
+			perm([]byte(strings.Replace(letters, "?", string(ALPHA[i]), 1)), 0)
+		}
+	} else {
+		perm([]byte(letters), 0)
+	}
 
 	if len(hits) == 0 {
 		resultElement.Set("innerText", "no results found")
@@ -50,12 +61,23 @@ func search(this js.Value, args []js.Value) interface{} {
 	return true
 }
 
-func perm(str []byte, i int) {
-	word := string(str[:i])
-	if _, ok := dict[word]; ok {
-		hits[word] = true
+func matchWord(str []byte) (exactMatch, prefixMatch bool) {
+	iter := dict.Root().Iterator()
+	iter.SeekPrefix(str)
+	if key, _, ok := iter.Next(); ok {
+		prefixMatch = true
+		exactMatch = bytes.Equal(str, key)
 	}
-	if i != len(str) {
+
+	return
+}
+
+func perm(str []byte, i int) {
+	exactMatch, prefixMatch := matchWord(str[:i])
+	if exactMatch {
+		hits[string(str[:i])] = true
+	}
+	if prefixMatch && i != len(str) {
 		for j := i; j < len(str); j++ {
 			str[i], str[j] = str[j], str[i]
 			perm(str, i+1)
@@ -65,7 +87,7 @@ func perm(str []byte, i int) {
 }
 
 func loadDictionary() {
-	dict = make(map[string]bool)
+	dict = iradix.New()
 
 	file, err := f.Open("dictionary.txt")
 	if err != nil {
@@ -79,7 +101,7 @@ func loadDictionary() {
 	// Read the file line by line
 	for scanner.Scan() {
 		line := scanner.Text()
-		dict[line] = true
+		dict, _, _ = dict.Insert([]byte(line), true)
 	}
 
 	// Check for any errors that occurred while reading the file
@@ -87,7 +109,7 @@ func loadDictionary() {
 		panic(err)
 	}
 
-	consoleLog("dictionary entry count:", len(dict))
+	consoleLog("dictionary entry count:", dict.Len())
 }
 
 func main() {
