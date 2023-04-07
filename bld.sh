@@ -50,7 +50,9 @@ done
 
 cd "$SCRIPT_DIR"
 
-rm -v "${DIST_DIR:?}"/*
+[[ -d "${DIST_DIR}" ]] && rm -rf "${DIST_DIR}"
+
+mkdir "${DIST_DIR}"
 
 cp -a "$SRC_DIR/index.html" "$DIST_DIR"
 
