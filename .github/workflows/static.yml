@@ -31,13 +31,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          architecture: 'wasm'
-          go-version: '1.20'
       - name: Build
-        run: ./bld.sh
+        run: 'docker run -v ${{ github.workspace }}:/src -w /src golang:1.20 ./bld.sh'
       - name: Setup Pages
         uses: actions/configure-pages@v3
       - name: Upload artifact
